@@ -1,15 +1,17 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Live Transcription</title>
-    </head>
-    <body>
-        <h1>Transcribe Audio With FastAPI</h1>
-        <p id="status">Connection status will go here</p>
-        <p id="transcript"></p>
 
-        <script>
-               navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+<head>
+    <title>Live Transcription</title>
+</head>
+
+<body>
+    <h1>Transcribe Audio With FastAPI</h1>
+    <p id="status">Connection status will go here</p>
+    <p id="transcript"></p>
+
+    <script>
+        navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
             if (!MediaRecorder.isTypeSupported('audio/webm'))
                 return alert('Browser not supported')
 
@@ -26,8 +28,8 @@
                     if (event.data.size > 0 && socket.readyState == 1) {
                         socket.send(event.data)
                     }
-            })
-            mediaRecorder.start(250)
+                })
+                mediaRecorder.start(250)
             }
 
             socket.onmessage = (message) => {
@@ -36,17 +38,18 @@
                     console.log(received)
                     document.querySelector('#transcript').textContent += ' ' + received
                 }
-           }
+            }
 
-           socket.onclose = () => {
-            console.log({ event: 'onclose' })
-        }
+            socket.onclose = () => {
+                console.log({ event: 'onclose' })
+            }
 
             socket.onerror = (error) => {
                 console.log({ event: 'onerror', error })
             }
 
-           })
-        </script>
-    </body>
+        })
+    </script>
+</body>
+
 </html>
