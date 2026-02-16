@@ -2,53 +2,762 @@
 <html>
 
 <head>
-    <title>Live Transcription</title>
+    <title>AI Teaching Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #e0e0e0;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #a78bfa, #60a5fa, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
+        }
+
+        .header .subtitle {
+            font-size: 13px;
+            color: #8b8ba7;
+        }
+
+        #status {
+            padding: 10px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: 3px solid #a78bfa;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #c4b5fd;
+            backdrop-filter: blur(10px);
+        }
+
+        .error-banner {
+            display: none;
+            padding: 12px 15px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-left: 3px solid #ef4444;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            color: #fca5a5;
+            font-size: 12px;
+            position: relative;
+        }
+
+        .error-banner .close-btn {
+            position: absolute;
+            right: 10px;
+            top: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #fca5a5;
+            background: none;
+            border: none;
+        }
+
+        .error-banner .rate-info {
+            font-size: 11px;
+            color: #f87171;
+            margin-top: 4px;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .panel-header h2 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+
+        .panel-header .badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+
+        /* Transcript Panel */
+        .transcript-panel {
+            min-height: 400px;
+            max-height: 550px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .transcript-panel .panel-header .badge {
+            background: rgba(167, 139, 250, 0.2);
+            color: #c4b5fd;
+        }
+
+        #transcript-feed {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        #transcript-feed::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        #transcript-feed::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 2px;
+        }
+
+        .transcript-line {
+            padding: 6px 10px;
+            margin-bottom: 4px;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #cbd5e1;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .transcript-line.concept {
+            background: rgba(52, 211, 153, 0.08);
+            border-left: 2px solid #34d399;
+            color: #6ee7b7;
+        }
+
+        .transcript-line.filler {
+            color: #94a3b8;
+            font-style: italic;
+            font-size: 12px;
+        }
+
+        .transcript-line.administration {
+            color: #fbbf24;
+            font-size: 12px;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Image Panel */
+        .image-panel {
+            min-height: 400px;
+            max-height: 550px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .image-panel .panel-header .badge {
+            background: rgba(52, 211, 153, 0.2);
+            color: #6ee7b7;
+        }
+
+        #image-display {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+        }
+
+        #image-display img {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 8px;
+            object-fit: contain;
+            animation: imageReveal 0.6s ease;
+        }
+
+        @keyframes imageReveal {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .image-placeholder {
+            text-align: center;
+            color: #64748b;
+        }
+
+        .image-placeholder .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.4;
+        }
+
+        .image-placeholder p {
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .generating-state {
+            text-align: center;
+        }
+
+        .generating-state .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(167, 139, 250, 0.2);
+            border-top: 3px solid #a78bfa;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .generating-state p {
+            color: #c4b5fd;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .generating-state .concepts-list {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #8b8ba7;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+
+        /* Concepts used label */
+        .concepts-used {
+            margin-top: 10px;
+            padding: 8px 10px;
+            background: rgba(52, 211, 153, 0.06);
+            border-radius: 6px;
+            font-size: 11px;
+            color: #6ee7b7;
+            max-height: 60px;
+            overflow-y: auto;
+        }
+
+        /* Status bar */
+        .status-bar {
+            margin-top: 16px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .status-item {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .status-item .value {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .status-item .label {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .status-item.concepts .value {
+            color: #34d399;
+        }
+
+        .status-item.images .value {
+            color: #a78bfa;
+        }
+
+        .status-item.buffer .value {
+            color: #60a5fa;
+        }
+
+        .status-item.rate .value {
+            color: #fbbf24;
+            font-size: 14px;
+        }
+
+        /* Image history */
+        .image-history {
+            margin-top: 16px;
+        }
+
+        .image-history-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: #8b8ba7;
+            margin-bottom: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .image-history-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 8px;
+        }
+
+        .history-thumb {
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: transform 0.2s, border-color 0.2s;
+            aspect-ratio: 1;
+        }
+
+        .history-thumb:hover {
+            transform: scale(1.04);
+            border-color: #a78bfa;
+        }
+
+        .history-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Error log */
+        .error-log {
+            margin-top: 16px;
+        }
+
+        .error-log summary {
+            cursor: pointer;
+            font-size: 12px;
+            color: #64748b;
+            user-select: none;
+        }
+
+        .error-log-entries {
+            max-height: 120px;
+            overflow-y: auto;
+            margin-top: 6px;
+        }
+
+        .error-log-entry {
+            padding: 4px 8px;
+            margin-bottom: 3px;
+            background: rgba(239, 68, 68, 0.06);
+            border-left: 2px solid rgba(239, 68, 68, 0.3);
+            font-size: 11px;
+            color: #94a3b8;
+            border-radius: 2px;
+        }
+
+        .error-log-entry .log-time {
+            color: #64748b;
+            margin-right: 6px;
+        }
+
+        /* Buffer progress inline */
+        .buffer-indicator {
+            display: none;
+            padding: 8px 12px;
+            background: rgba(96, 165, 250, 0.08);
+            border: 1px solid rgba(96, 165, 250, 0.15);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-size: 12px;
+            color: #93c5fd;
+            text-align: center;
+        }
+
+        .buffer-bar-track {
+            display: inline-block;
+            width: 100px;
+            height: 4px;
+            background: rgba(96, 165, 250, 0.15);
+            border-radius: 2px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        .buffer-bar-fill {
+            height: 100%;
+            background: #60a5fa;
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+
+        @media (max-width: 768px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .status-bar {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
 </head>
 
 <body>
-    <h1>Transcribe Audio With FastAPI</h1>
-    <p id="status">Connection status will go here</p>
-    <p id="transcript"></p>
+    <div class="container">
+        <div class="header">
+            <h1>🎓 AI Teaching Visualizer</h1>
+            <p class="subtitle">Real-time speech → AI classification → Visual concept generation</p>
+        </div>
+
+        <div id="status">🔴 Waiting for connection...</div>
+
+        <div id="error-banner" class="error-banner">
+            <button class="close-btn" onclick="document.getElementById('error-banner').style.display='none'">✕</button>
+            <div id="error-message"></div>
+            <div id="rate-info" class="rate-info"></div>
+        </div>
+
+        <div id="buffer-indicator" class="buffer-indicator">
+            🔄 Classifying... <span id="buffer-text">0/5</span>
+            <div class="buffer-bar-track">
+                <div class="buffer-bar-fill" id="buffer-bar"></div>
+            </div>
+        </div>
+
+        <div class="main-layout">
+            <!-- Left: Live Transcript -->
+            <div class="panel transcript-panel">
+                <div class="panel-header">
+                    <h2>🎙️ Live Transcript</h2>
+                    <span class="badge" id="transcript-count">0 segments</span>
+                </div>
+                <div id="transcript-feed"></div>
+            </div>
+
+            <!-- Right: Generated Image -->
+            <div class="panel image-panel">
+                <div class="panel-header">
+                    <h2>🖼️ Generated Visualization</h2>
+                    <span class="badge" id="image-badge">waiting</span>
+                </div>
+                <div id="image-display">
+                    <div class="image-placeholder" id="image-placeholder">
+                        <div class="icon">🎨</div>
+                        <p>Listening for visual concepts...<br>
+                            An image will be generated when enough<br>
+                            educational content is detected.</p>
+                    </div>
+                </div>
+                <div class="concepts-used" id="concepts-used" style="display:none;"></div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-item concepts">
+                <div class="value" id="concepts-count">0</div>
+                <div class="label">Visual Concepts</div>
+            </div>
+            <div class="status-item images">
+                <div class="value" id="images-count">0</div>
+                <div class="label">Images Generated</div>
+            </div>
+            <div class="status-item buffer">
+                <div class="value" id="total-segments">0</div>
+                <div class="label">Total Segments</div>
+            </div>
+            <div class="status-item rate">
+                <div class="value" id="rate-status">—</div>
+                <div class="label">API Remaining</div>
+            </div>
+        </div>
+
+        <!-- Image History -->
+        <div class="image-history" id="image-history" style="display:none;">
+            <div class="image-history-header"
+                onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'grid' : 'none'">
+                🕓 Previous Images (<span id="history-count">0</span>)
+            </div>
+            <div class="image-history-grid" id="history-grid"></div>
+        </div>
+
+        <!-- Error Log -->
+        <div class="error-log">
+            <details>
+                <summary>📋 Error Log (<span id="error-count">0</span>)</summary>
+                <div class="error-log-entries" id="error-log-entries"></div>
+            </details>
+        </div>
+    </div>
 
     <script>
+        let conceptsCount = 0;
+        let imagesCount = 0;
+        let totalSegments = 0;
+        let errorCount = 0;
+        let imageHistory = [];
+
+        function showError(message, rateLimit) {
+            const banner = document.querySelector('#error-banner');
+            document.querySelector('#error-message').textContent = '⚠️ ' + message;
+
+            if (rateLimit) {
+                document.querySelector('#rate-info').textContent =
+                    `API: ${rateLimit.requests_today}/${rateLimit.max_rpd} daily | ${rateLimit.daily_remaining} remaining`;
+                document.querySelector('#rate-status').textContent = rateLimit.daily_remaining;
+            } else {
+                document.querySelector('#rate-info').textContent = '';
+            }
+
+            banner.style.display = 'block';
+
+            errorCount++;
+            document.querySelector('#error-count').textContent = errorCount;
+            const logEntry = document.createElement('div');
+            logEntry.className = 'error-log-entry';
+            const now = new Date().toLocaleTimeString();
+            logEntry.innerHTML = `<span class="log-time">[${now}]</span> ${message}`;
+            document.querySelector('#error-log-entries').prepend(logEntry);
+        }
+
+        function addTranscript(text, category) {
+            const feed = document.querySelector('#transcript-feed');
+            const line = document.createElement('div');
+            line.className = `transcript-line ${category || ''}`;
+
+            if (category === 'concept') {
+                line.textContent = '💡 ' + text;
+            } else if (category === 'filler') {
+                line.textContent = text;
+            } else if (category === 'administration') {
+                line.textContent = '⚙️ ' + text;
+            } else {
+                line.textContent = text;
+            }
+
+            feed.appendChild(line);
+            feed.scrollTop = feed.scrollHeight;
+
+            totalSegments++;
+            document.querySelector('#total-segments').textContent = totalSegments;
+            document.querySelector('#transcript-count').textContent = totalSegments + ' segments';
+        }
+
+        function showGenerating(concepts) {
+            const display = document.querySelector('#image-display');
+            display.innerHTML = `
+                <div class="generating-state">
+                    <div class="spinner"></div>
+                    <p>Generating visualization...</p>
+                    <div class="concepts-list">${concepts.map(c => '• ' + c).join('<br>')}</div>
+                </div>
+            `;
+            document.querySelector('#image-badge').textContent = 'generating...';
+        }
+
+        function showImage(imageData, mimeType, conceptsUsed) {
+            const display = document.querySelector('#image-display');
+            const img = document.createElement('img');
+            img.src = `data:${mimeType};base64,${imageData}`;
+            img.alt = 'Generated visualization';
+            display.innerHTML = '';
+            display.appendChild(img);
+
+            // Show concepts used
+            const conceptsDiv = document.querySelector('#concepts-used');
+            conceptsDiv.style.display = 'block';
+            conceptsDiv.textContent = '📝 Based on: ' + conceptsUsed.join(' • ');
+
+            // Update counters
+            imagesCount++;
+            document.querySelector('#images-count').textContent = imagesCount;
+            document.querySelector('#image-badge').textContent = `#${imagesCount}`;
+
+            // Add to history
+            imageHistory.push({ data: imageData, mimeType: mimeType, concepts: conceptsUsed });
+            updateHistory();
+        }
+
+        function updateHistory() {
+            if (imageHistory.length < 2) return;
+
+            const section = document.querySelector('#image-history');
+            section.style.display = 'block';
+            document.querySelector('#history-count').textContent = imageHistory.length - 1;
+
+            const grid = document.querySelector('#history-grid');
+            grid.innerHTML = '';
+
+            // Show all but the latest (which is currently displayed)
+            for (let i = imageHistory.length - 2; i >= 0; i--) {
+                const item = imageHistory[i];
+                const thumb = document.createElement('div');
+                thumb.className = 'history-thumb';
+                thumb.innerHTML = `<img src="data:${item.mimeType};base64,${item.data}" alt="Generated image ${i + 1}">`;
+                thumb.onclick = () => {
+                    // Click to view full size
+                    const display = document.querySelector('#image-display');
+                    display.innerHTML = `<img src="data:${item.mimeType};base64,${item.data}" alt="Generated image">`;
+                    const conceptsDiv = document.querySelector('#concepts-used');
+                    conceptsDiv.style.display = 'block';
+                    conceptsDiv.textContent = '📝 Based on: ' + item.concepts.join(' • ');
+                };
+                grid.appendChild(thumb);
+            }
+        }
+
         navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
             if (!MediaRecorder.isTypeSupported('audio/webm'))
-                return alert('Browser not supported')
+                return alert('Browser not supported');
 
-            const mediaRecorder = new MediaRecorder(stream, {
-                mimeType: 'audio/webm',
-            })
+            const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
 
-            const socket = new WebSocket('ws://localhost:8000/listen')
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const socket = new WebSocket(`${wsProtocol}//${window.location.host}/listen`);
 
             socket.onopen = () => {
-                document.querySelector('#status').textContent = 'Connected'
-                console.log({ event: 'onopen' })
+                document.querySelector('#status').textContent = '🟢 Connected — Listening for speech...';
+                document.querySelector('#status').style.borderLeftColor = '#34d399';
+                console.log('WebSocket connected');
                 mediaRecorder.addEventListener('dataavailable', async (event) => {
                     if (event.data.size > 0 && socket.readyState == 1) {
-                        socket.send(event.data)
+                        socket.send(event.data);
                     }
-                })
-                mediaRecorder.start(250)
-            }
+                });
+                mediaRecorder.start(250);
+            };
 
             socket.onmessage = (message) => {
-                const received = message.data
-                if (received) {
-                    console.log(received)
-                    document.querySelector('#transcript').textContent += ' ' + received
+                try {
+                    const data = JSON.parse(message.data);
+                    console.log('Received:', data);
+
+                    // Error
+                    if (data.type === 'error') {
+                        showError(data.error, data.rate_limit || null);
+                        return;
+                    }
+
+                    // Live transcript
+                    if (data.type === 'transcript') {
+                        addTranscript(data.text);
+                        return;
+                    }
+
+                    // Buffering status
+                    if (data.type === 'buffering') {
+                        const pct = (data.buffered / data.buffer_size) * 100;
+                        document.querySelector('#buffer-indicator').style.display = 'block';
+                        document.querySelector('#buffer-text').textContent = `${data.buffered}/${data.buffer_size}`;
+                        document.querySelector('#buffer-bar').style.width = `${pct}%`;
+
+                        if (data.concepts_count !== undefined) {
+                            document.querySelector('#concepts-count').textContent = data.concepts_count;
+                        }
+                        return;
+                    }
+
+                    // Classification result
+                    if (data.type === 'classification') {
+                        document.querySelector('#buffer-indicator').style.display = 'none';
+
+                        if (data.category === 'visual_concept') {
+                            addTranscript(data.text, 'concept');
+                            conceptsCount++;
+                            document.querySelector('#concepts-count').textContent = conceptsCount;
+                        } else if (data.category === 'filler') {
+                            addTranscript(data.text, 'filler');
+                        } else if (data.category === 'administration') {
+                            addTranscript(data.text, 'administration');
+                        }
+                        return;
+                    }
+
+                    // Image generating
+                    if (data.type === 'image_generating') {
+                        showGenerating(data.concepts || []);
+                        return;
+                    }
+
+                    // Generated image
+                    if (data.type === 'generated_image') {
+                        showImage(data.image_data, data.mime_type, data.concepts_used || []);
+                        return;
+                    }
+
+                } catch (e) {
+                    console.error('Error parsing message:', e);
                 }
-            }
+            };
 
             socket.onclose = () => {
-                console.log({ event: 'onclose' })
-            }
+                document.querySelector('#status').textContent = '🔴 Disconnected';
+                document.querySelector('#status').style.borderLeftColor = '#ef4444';
+                console.log('WebSocket closed');
+            };
 
             socket.onerror = (error) => {
-                console.log({ event: 'onerror', error })
-            }
+                console.log('WebSocket error:', error);
+            };
 
-        })
+        }).catch((error) => {
+            console.error('Microphone access error:', error);
+            document.querySelector('#status').textContent = '🔴 Microphone access denied. Please allow microphone access and reload.';
+            document.querySelector('#status').style.borderLeftColor = '#ef4444';
+        });
     </script>
 </body>
 

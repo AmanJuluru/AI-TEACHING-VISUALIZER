@@ -1,4 +1,4 @@
-from deepgram import Deepgram
+from deepgram import DeepgramClient
 import os
 import asyncio
 from dotenv import load_dotenv
@@ -7,13 +7,12 @@ load_dotenv()
 
 async def main():
     try:
-        dg_client = Deepgram(os.getenv('DEEPGRAM_API_KEY'))
+        dg_client = DeepgramClient(api_key=os.getenv('DEEPGRAM_API_KEY'))
         print("Client verified.")
-        # Minimal test to see if we can even create a live socket
-        socket = await dg_client.transcription.live({'punctuate': True})
-        print("Socket created successfully.")
-        await socket.close()
-        print("Socket closed.")
+        # Minimal test to see if we can create a live connection
+        async with dg_client.listen.asynclive.v("1") as connection:
+            print("Connection created successfully.")
+        print("Connection closed.")
     except Exception as e:
         print(f"Error: {e}")
 
