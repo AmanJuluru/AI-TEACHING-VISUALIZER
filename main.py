@@ -2,6 +2,7 @@ import asyncio
 import os
 import json
 from fastapi import FastAPI, Request, WebSocket
+from deepgram.extensions.types.sockets import ListenV1ControlMessage
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
@@ -127,6 +128,20 @@ async def websocket_endpoint(websocket: WebSocket):
                 except Exception as e:
                     print(f"Sender error (client disconnected?): {e}")
 
+            async def keepalive():
+                """Send keepalive to Deepgram to prevent 10s inactivity timeout"""
+                try:
+                    while True:
+                        await asyncio.sleep(5)
+                        await dg_connection.send_control(
+                            ListenV1ControlMessage(type="KeepAlive")
+                        )
+                        print("Sent KeepAlive to Deepgram")
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e:
+                    print(f"Keepalive error: {e}")
+
             async def receiver():
                 """Receive transcripts from Deepgram, classify, and generate images"""
                 try:
@@ -230,9 +245,10 @@ async def websocket_endpoint(websocket: WebSocket):
             # Run sender and receiver concurrently
             sender_task = asyncio.create_task(sender())
             receiver_task = asyncio.create_task(receiver())
+            keepalive_task = asyncio.create_task(keepalive())
 
             done, pending = await asyncio.wait(
-                [sender_task, receiver_task],
+                [sender_task, receiver_task, keepalive_task],
                 return_when=asyncio.FIRST_COMPLETED
             )
 

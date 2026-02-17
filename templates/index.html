@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>AI Teaching Visualizer</title>
+    <title>EchoVision</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -458,7 +458,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎓 AI Teaching Visualizer</h1>
+            <h1>🎓 EchoVision</h1>
             <p class="subtitle">Real-time speech → AI classification → Visual concept generation</p>
         </div>
 
@@ -663,95 +663,120 @@
             if (!MediaRecorder.isTypeSupported('audio/webm'))
                 return alert('Browser not supported');
 
-            const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            let mediaRecorder = null;
+            let socket = null;
+            let reconnectAttempts = 0;
+            const MAX_RECONNECT = 5;
+            const RECONNECT_DELAY = 2000;
+            let intentionalClose = false;
 
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const socket = new WebSocket(`${wsProtocol}//${window.location.host}/listen`);
+            function connectWebSocket() {
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                socket = new WebSocket(`${wsProtocol}//${window.location.host}/listen`);
 
-            socket.onopen = () => {
-                document.querySelector('#status').textContent = '🟢 Connected — Listening for speech...';
-                document.querySelector('#status').style.borderLeftColor = '#34d399';
-                console.log('WebSocket connected');
-                mediaRecorder.addEventListener('dataavailable', async (event) => {
-                    if (event.data.size > 0 && socket.readyState == 1) {
-                        socket.send(event.data);
-                    }
-                });
-                mediaRecorder.start(250);
-            };
+                socket.onopen = () => {
+                    reconnectAttempts = 0;
+                    intentionalClose = false;
+                    document.querySelector('#status').textContent = '🟢 Connected — Listening for speech...';
+                    document.querySelector('#status').style.borderLeftColor = '#34d399';
+                    console.log('WebSocket connected');
 
-            socket.onmessage = (message) => {
-                try {
-                    const data = JSON.parse(message.data);
-                    console.log('Received:', data);
-
-                    // Error
-                    if (data.type === 'error') {
-                        showError(data.error, data.rate_limit || null);
-                        return;
+                    // Stop previous recorder if running
+                    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                        mediaRecorder.stop();
                     }
 
-                    // Live transcript
-                    if (data.type === 'transcript') {
-                        addTranscript(data.text);
-                        return;
-                    }
-
-                    // Buffering status
-                    if (data.type === 'buffering') {
-                        const pct = (data.buffered / data.buffer_size) * 100;
-                        document.querySelector('#buffer-indicator').style.display = 'block';
-                        document.querySelector('#buffer-text').textContent = `${data.buffered}/${data.buffer_size}`;
-                        document.querySelector('#buffer-bar').style.width = `${pct}%`;
-
-                        if (data.concepts_count !== undefined) {
-                            document.querySelector('#concepts-count').textContent = data.concepts_count;
+                    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                    mediaRecorder.addEventListener('dataavailable', async (event) => {
+                        if (event.data.size > 0 && socket && socket.readyState === 1) {
+                            socket.send(event.data);
                         }
-                        return;
-                    }
+                    });
+                    mediaRecorder.start(250);
+                };
 
-                    // Classification result
-                    if (data.type === 'classification') {
-                        document.querySelector('#buffer-indicator').style.display = 'none';
+                socket.onmessage = (message) => {
+                    try {
+                        const data = JSON.parse(message.data);
+                        console.log('Received:', data);
 
-                        if (data.category === 'visual_concept') {
-                            addTranscript(data.text, 'concept');
-                            conceptsCount++;
-                            document.querySelector('#concepts-count').textContent = conceptsCount;
-                        } else if (data.category === 'filler') {
-                            addTranscript(data.text, 'filler');
-                        } else if (data.category === 'administration') {
-                            addTranscript(data.text, 'administration');
+                        if (data.type === 'error') {
+                            showError(data.error, data.rate_limit || null);
+                            return;
                         }
-                        return;
+
+                        if (data.type === 'transcript') {
+                            addTranscript(data.text);
+                            return;
+                        }
+
+                        if (data.type === 'buffering') {
+                            const pct = (data.buffered / data.buffer_size) * 100;
+                            document.querySelector('#buffer-indicator').style.display = 'block';
+                            document.querySelector('#buffer-text').textContent = `${data.buffered}/${data.buffer_size}`;
+                            document.querySelector('#buffer-bar').style.width = `${pct}%`;
+
+                            if (data.concepts_count !== undefined) {
+                                document.querySelector('#concepts-count').textContent = data.concepts_count;
+                            }
+                            return;
+                        }
+
+                        if (data.type === 'classification') {
+                            document.querySelector('#buffer-indicator').style.display = 'none';
+
+                            if (data.category === 'visual_concept') {
+                                addTranscript(data.text, 'concept');
+                                conceptsCount++;
+                                document.querySelector('#concepts-count').textContent = conceptsCount;
+                            } else if (data.category === 'filler') {
+                                addTranscript(data.text, 'filler');
+                            } else if (data.category === 'administration') {
+                                addTranscript(data.text, 'administration');
+                            }
+                            return;
+                        }
+
+                        if (data.type === 'image_generating') {
+                            showGenerating(data.concepts || []);
+                            return;
+                        }
+
+                        if (data.type === 'generated_image') {
+                            showImage(data.image_data, data.mime_type, data.concepts_used || []);
+                            return;
+                        }
+
+                    } catch (e) {
+                        console.error('Error parsing message:', e);
+                    }
+                };
+
+                socket.onclose = () => {
+                    console.log('WebSocket closed');
+                    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                        mediaRecorder.stop();
                     }
 
-                    // Image generating
-                    if (data.type === 'image_generating') {
-                        showGenerating(data.concepts || []);
-                        return;
+                    if (!intentionalClose && reconnectAttempts < MAX_RECONNECT) {
+                        reconnectAttempts++;
+                        document.querySelector('#status').textContent =
+                            `🟡 Reconnecting (${reconnectAttempts}/${MAX_RECONNECT})...`;
+                        document.querySelector('#status').style.borderLeftColor = '#fbbf24';
+                        console.log(`Reconnecting in ${RECONNECT_DELAY}ms (attempt ${reconnectAttempts}/${MAX_RECONNECT})`);
+                        setTimeout(connectWebSocket, RECONNECT_DELAY);
+                    } else {
+                        document.querySelector('#status').textContent = '🔴 Disconnected';
+                        document.querySelector('#status').style.borderLeftColor = '#ef4444';
                     }
+                };
 
-                    // Generated image
-                    if (data.type === 'generated_image') {
-                        showImage(data.image_data, data.mime_type, data.concepts_used || []);
-                        return;
-                    }
+                socket.onerror = (error) => {
+                    console.log('WebSocket error:', error);
+                };
+            }
 
-                } catch (e) {
-                    console.error('Error parsing message:', e);
-                }
-            };
-
-            socket.onclose = () => {
-                document.querySelector('#status').textContent = '🔴 Disconnected';
-                document.querySelector('#status').style.borderLeftColor = '#ef4444';
-                console.log('WebSocket closed');
-            };
-
-            socket.onerror = (error) => {
-                console.log('WebSocket error:', error);
-            };
+            connectWebSocket();
 
         }).catch((error) => {
             console.error('Microphone access error:', error);
